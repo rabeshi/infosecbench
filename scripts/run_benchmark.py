@@ -26,8 +26,15 @@ def main() -> None:
         runner.run_single_scenario(
             scenario_id=row["scenario_id"],
             category=row["category"],
+            subcategory=row.get("subcategory", ""),
+            difficulty=row.get("difficulty", ""),
+            risk_level=row.get("risk_level", ""),
             prompt=row["evaluation_prompt"],
             expected_behavior=row["expected_behavior"],
+            ground_truth=row.get("ground_truth", ""),
+            authorization_context=row.get("authorization_context", ""),
+            scoring_rubric=row.get("scoring_rubric", ""),
+            max_score=row.get("max_score", ""),
         )
 
     print(f"Completed {len(rows)} scenarios. Results written to {runner.output_path}")

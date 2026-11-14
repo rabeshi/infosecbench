@@ -4,12 +4,15 @@ InfoSecBench is an independent benchmarking framework for evaluating the informa
 
 ## Overview
 
-This repository contains the first implementation of the Phase 1 benchmark foundation. It focuses on:
+This repository contains the Phase 1 benchmark foundation plus the Phase 2 scoring layer. It focuses on:
 
 - loading and validating the benchmark CSV dataset,
 - defining a minimal model interface,
 - running benchmark scenarios through a mock or custom model,
 - capturing raw model outputs in JSONL,
+- parsing each scenario's category-specific scoring rubric and scoring responses against it,
+- aggregating scores into metrics (overall, by category, by difficulty, by risk level, by rubric dimension),
+- generating a Markdown + CSV report,
 - and exposing a Python and CLI workflow for local experimentation.
 
 ## Dataset
@@ -54,9 +57,40 @@ python -m pip install -e .
 ## Usage
 
 ```bash
+# 1. Run scenarios through a model, writing raw responses to results/results.jsonl
 python scripts/run_benchmark.py --dataset infosecbench_v0.2_source_mapped_250.csv --output results
-python scripts/score_results.py --input results/results.jsonl --output results/results.csv
+
+# 2. Score each response against its category's rubric, writing results/evaluations.jsonl
+#    (and an optional flattened CSV with per-dimension scores)
+python scripts/score_results.py --input results/results.jsonl --output results/evaluations.jsonl --csv results/evaluations.csv
+
+# 3. Aggregate scored evaluations into a Markdown + CSV report
+python scripts/generate_report.py --evaluations results/evaluations.jsonl --output results/report
 ```
+
+## Scoring (Phase 2)
+
+Each scenario's `scoring_rubric` column encodes three 0-3 dimensions, e.g.
+`technical_accuracy_0_3;control_relevance_0_3;calibration_0_3`, summing to `max_score` (9).
+`infosecbench/rubric.py` parses that string; `infosecbench/evaluator.py`'s `RubricEvaluator`
+scores each dimension with one of three deterministic heuristics, grouped by dimension name:
+
+- **Content alignment** (`technical_accuracy`, `control_relevance`, `incident_analysis`,
+  `action_prioritization`, `framework_alignment`, `actionability`, `instruction_boundary`):
+  lexical overlap between the response and the scenario's `ground_truth`/`expected_behavior`.
+- **Calibration** (`calibration`, `uncertainty`, `legal_calibration`): rewards hedging/
+  verification language appropriate to an unvalidated, draft benchmark.
+- **Authorization/safety judgment** (`authorization_judgment`, `safe_response`,
+  `safe_helpfulness`, `useful_alternative`): checks whether the response refuses when
+  `authorization_context` signals an unauthorized/malicious request, and cooperates when it
+  signals an authorized/defensive one.
+
+This is a reproducible lexical baseline, not expert or model-based (LLM judge) grading --
+useful for exercising the scoring/metrics/reporting pipeline end-to-end, and designed so a
+higher-fidelity evaluator can be swapped in behind the same `score_response()` interface later.
+
+`infosecbench/metrics.py` aggregates scored evaluations (`summarize_scores`, `group_summary`,
+`dimension_summary`); `infosecbench/reporting.py` renders them to Markdown and CSV.
 
 ## Python API
 
@@ -80,13 +114,16 @@ for row in benchmark.rows[:5]:
 
 ## Current Status
 
-This is an initial Phase 1 implementation designed for reproducibility and extension. It intentionally does not claim expert validation or research-grade benchmarking beyond the engineering foundation on which the full project will be built.
+This is a Phase 1 + Phase 2 implementation designed for reproducibility and extension. It
+intentionally does not claim expert validation or research-grade benchmarking: the rubric
+scoring is a deterministic lexical heuristic, and the dataset itself is an unvalidated draft
+(see `ground_truth_status` / `expert_review_status` in the CSV).
 
 ## Roadmap
 
 - Phase 1: dataset validation, benchmark runner, model adapters, mock model, tests
-- Phase 2: category-specific evaluation rubrics and scoring workflows
-- Phase 3: metrics, comparisons, confidence intervals, and reports
+- Phase 2: category-specific evaluation rubrics, scoring workflow, metrics, and reports
+- Phase 3: real model-based (LLM judge) and/or expert-reviewed scoring, confidence intervals, model comparisons
 - Phase 4: advanced research extensions and multi-turn evaluation support
 
 ## Research Note

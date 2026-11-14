@@ -23,14 +23,28 @@ class BenchmarkRunner:
         category: str,
         prompt: str,
         expected_behavior: str,
+        subcategory: str = "",
+        difficulty: str = "",
+        risk_level: str = "",
+        authorization_context: str = "",
+        scoring_rubric: str = "",
+        max_score: str = "",
+        ground_truth: str = "",
         **kwargs: Any,
     ) -> dict[str, Any]:
         response = self.model.generate(prompt, **kwargs)
         record = {
             "scenario_id": scenario_id,
             "category": category,
+            "subcategory": subcategory,
+            "difficulty": difficulty,
+            "risk_level": risk_level,
             "prompt": prompt,
             "expected_behavior": expected_behavior,
+            "ground_truth": ground_truth,
+            "authorization_context": authorization_context,
+            "scoring_rubric": scoring_rubric,
+            "max_score": max_score,
             "response": response,
             "status": "completed",
         }

@@ -5,41 +5,43 @@ import argparse
 import json
 from pathlib import Path
 
+from infosecbench.metrics import group_summary
+from infosecbench.reporting import export_group_summary_csv, render_markdown_report
+
+
+def _load_evaluations(evaluations_path: Path) -> list[dict]:
+    evaluations = []
+    with evaluations_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                evaluations.append(json.loads(line))
+    return evaluations
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate a basic summary report from JSONL benchmark results")
-    parser.add_argument("--results", type=str, required=True)
-    parser.add_argument("--output", type=str, required=True)
+    parser = argparse.ArgumentParser(description="Generate a Phase 2 report from scored InfoSecBench evaluations")
+    parser.add_argument("--evaluations", type=str, required=True, help="Path to evaluations.jsonl from score_results.py")
+    parser.add_argument("--output", type=str, required=True, help="Output directory for the report")
     args = parser.parse_args()
 
-    results_dir = Path(args.results)
+    evaluations_path = Path(args.evaluations)
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    total = 0
-    categories = {}
-    for file in sorted(results_dir.glob("*.jsonl")):
-        with file.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                total += 1
-                record = json.loads(line)
-                category = record.get("category", "unknown")
-                categories[category] = categories.get(category, 0) + 1
+    evaluations = _load_evaluations(evaluations_path)
+    if not evaluations:
+        raise SystemExit(f"No evaluations found in {evaluations_path}")
 
-    summary_path = output_dir / "summary.txt"
-    summary_lines = [
-        "InfoSecBench benchmark summary",
-        f"Total records: {total}",
-        "",
-        "By category:",
-    ]
-    for key, value in sorted(categories.items()):
-        summary_lines.append(f"- {key}: {value}")
+    summary_path = output_dir / "summary.md"
+    summary_path.write_text(render_markdown_report(evaluations), encoding="utf-8")
 
-    summary_path.write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
-    print(f"Wrote summary to {summary_path}")
+    category_csv_path = export_group_summary_csv(
+        group_summary(evaluations, "category"), "category", output_dir / "category_summary.csv"
+    )
+
+    print(f"Evaluated {len(evaluations)} scenarios.")
+    print(f"Wrote Markdown report to {summary_path}")
+    print(f"Wrote category summary CSV to {category_csv_path}")
 
 
 if __name__ == "__main__":
