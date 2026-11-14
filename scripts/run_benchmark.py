@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 
 from infosecbench.dataset import Dataset
+from infosecbench.models.local import DEFAULT_OLLAMA_ENDPOINT, LocalModel
 from infosecbench.models.mock import MockModel
 from infosecbench.runner import BenchmarkRunner
 
@@ -14,11 +15,20 @@ def main() -> None:
     parser.add_argument("--dataset", type=str, default="infosecbench_v0.2_source_mapped_250.csv")
     parser.add_argument("--output", type=str, default="results")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--model", type=str, default="mock")
+    parser.add_argument("--model-type", choices=["mock", "ollama"], default="mock")
+    parser.add_argument(
+        "--model-name", type=str, default="mock-model",
+        help="Model name; the Ollama model tag (e.g. 'llama3') when --model-type=ollama",
+    )
+    parser.add_argument("--endpoint", type=str, default=DEFAULT_OLLAMA_ENDPOINT, help="Ollama server endpoint")
+    parser.add_argument("--mock-response", type=str, default="safe and evidence-based recommendation")
     args = parser.parse_args()
 
     dataset = Dataset.from_csv(Path(args.dataset))
-    model = MockModel(name=args.model, response_text="safe and evidence-based recommendation")
+    if args.model_type == "ollama":
+        model = LocalModel(name=args.model_name, model=args.model_name, endpoint=args.endpoint)
+    else:
+        model = MockModel(name=args.model_name, response_text=args.mock_response)
     runner = BenchmarkRunner(model=model, output_dir=args.output)
 
     rows = dataset.rows[: args.limit] if args.limit is not None else dataset.rows

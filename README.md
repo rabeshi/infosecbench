@@ -58,7 +58,11 @@ python -m pip install -e .
 
 ```bash
 # 1. Run scenarios through a model, writing raw responses to results/results.jsonl
+#    Default is the deterministic MockModel; pass --model-type ollama to use a local
+#    Ollama server instead (requires `ollama serve` running and the model pulled).
 python scripts/run_benchmark.py --dataset infosecbench_v0.2_source_mapped_250.csv --output results
+python scripts/run_benchmark.py --dataset infosecbench_v0.2_source_mapped_250.csv --output results \
+    --model-type ollama --model-name llama2
 
 # 2. Score each response against its category's rubric, writing results/evaluations.jsonl
 #    (and an optional flattened CSV with per-dimension scores)
